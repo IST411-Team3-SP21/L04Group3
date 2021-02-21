@@ -1,5 +1,13 @@
 package edu.psu.server;
-
+/**
+ * Project: Lab 4 Group Work
+ * Purpose Details: HTTP Get and Post
+ * Course: IST 411
+ * Author: Team 3
+ * Date Developed: 2/17/2020
+ * Last Date Changed: 2/20/2020
+ * Revision: 1
+ */
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;

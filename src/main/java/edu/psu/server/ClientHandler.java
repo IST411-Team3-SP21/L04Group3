@@ -6,10 +6,8 @@ import edu.psu.server.entity.DiaryEntry;
 
 import java.io.*;
 import java.net.Socket;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.StringTokenizer;
 import java.util.stream.Collectors;
 
@@ -53,15 +51,23 @@ public class ClientHandler implements Runnable {
                 .collect(Collectors.joining("\n"));
     }
 
+    /**
+     * Reads in the diary entries from the json file, deserializes them into POJOs,
+     * and returns the contents
+     * @return {@link DiaryEntries}
+     * @throws Exception Typically an IOException
+     */
     public DiaryEntries getDiaryPosts() throws Exception {
-        File jarFile = new File(this.getClass().getProtectionDomain().getCodeSource().getLocation().toURI().getPath());
-        String inputFilePath = jarFile.getParent() + File.separator + "diary.json";
         InputStream is = new FileInputStream("../diary.json");
         var fileBody = jsonToString(is, "UTF-8");
         return gson.fromJson(fileBody, DiaryEntries.class);
     }
 
-    public void sendDiaryResponse(int code) {
+    /**
+     * Sends all the diary responses as HTML, this is used for access within the browser
+     * @param code Status Code
+     */
+    public void sendDiaryResponseHTML(int code) {
         try {
             StringBuilder responseBuffer = new StringBuilder()
                     .append("<html><h1>Group3 WebServer Home Page.... </h1><br>")
@@ -91,22 +97,37 @@ public class ClientHandler implements Runnable {
         }
     }
 
+    /**
+     * Get Handler (more like a controller to be honest) for incoming get requests
+     * @param tokenizer
+     */
     public void handleGET(StringTokenizer tokenizer) {
         System.out.println("Processing Get Request");
         String httpQueryString = tokenizer.nextToken();
-        sendDiaryResponse(200);
+        sendDiaryResponseHTML(200);
     }
 
+    /**
+     * A little lazy, but we essentially get all existing entries from the json file,
+     * then we deserialize them, add the new entry, the serializer them back, and overwrite
+     * the existing file, with the new structure of data.
+     * @param diaryEntry {@link DiaryEntry} THe newly "created" diary entry
+     * @throws Exception Typically an IOException
+     */
     public void createDiaryEntry(DiaryEntry diaryEntry) throws Exception {
         var diaryEntries = getDiaryPosts();
         diaryEntries.addDiaryEntry(diaryEntry);
-
 
         FileOutputStream fout = new FileOutputStream("../diary.json");
         fout.write(gson.toJson(diaryEntries).getBytes());
         fout.close();
     }
 
+    /**
+     * Regex to parse out any JSON matches from the body of a POST request
+     * @param payload Entire payload of POST request
+     * @return
+     */
     private String parseJsonFromBody(String payload) {
         List<Character> stack = new ArrayList<>();
         List<String> json = new ArrayList<>();
@@ -131,13 +152,15 @@ public class ClientHandler implements Runnable {
                 tempStr = "";
             }
         }
-        for (String nextJson: json) {
-            System.out.println(nextJson);
-        }
-
         return json.get(0);
     }
 
+    /**
+     * Handler for incoming POST requests
+     * @param in {@link BufferedReader} input
+     * @param tokenizer
+     * @throws Exception
+     */
     public void handlePOST(BufferedReader in, StringTokenizer tokenizer) throws Exception {
         System.out.println("Processing POST Request");
 
@@ -150,10 +173,17 @@ public class ClientHandler implements Runnable {
         diaryEntry.setIpAddress(socket.getRemoteSocketAddress().toString());
 
         createDiaryEntry(diaryEntry);
-        sendDiaryResponse(201);
+        sendResponse(socket,201, gson.toJson(diaryEntry));
     }
 
 
+    /**
+     * Acts as the abstracted handler. Typically we would have some framework
+     * like Spring, Play, etc.   provide an abstraction, that would route our requests, via a handler,
+     * to the approriate controller, based on the route. But we are going really low level
+     * here and making a sudo version of said handler.
+     * @param socket {@link Socket}
+     */
     public void handleRequest(Socket socket) {
         try (BufferedReader in = new BufferedReader(
                 new InputStreamReader(socket.getInputStream()))) {
@@ -173,12 +203,17 @@ public class ClientHandler implements Runnable {
                     sendResponse(socket, 405, "Method Not Allowed");
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            System.err.println(e.getMessage());
         }
     }
 
-    public void sendResponse(Socket socket,
-                             int statusCode, String responseString) {
+    /**
+     * Sends the appropriate response w/ body back to the client, based on the status code.
+     * @param socket {@link Socket} The client socket
+     * @param statusCode {@link Integer} For this we are really just using 20x, 40x
+     * @param responseString The body of the response.
+     */
+    public void sendResponse(Socket socket, int statusCode, String responseString) {
         String statusLine;
         String serverHeader = "Server: WebServer\r\n";
         String contentTypeHeader = "Content-Type: text/html\r\n";
@@ -218,7 +253,7 @@ public class ClientHandler implements Runnable {
             }
             out.close();
         } catch (IOException ex) {
-            // Handle exception
+            System.err.println(ex.getMessage());
         }
     }
 
