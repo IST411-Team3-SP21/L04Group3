@@ -4,6 +4,7 @@ import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 
 public class DiaryEntries implements Serializable
@@ -11,7 +12,7 @@ public class DiaryEntries implements Serializable
 
     @SerializedName("diaryEntries")
     @Expose
-    private List<DiaryEntry> diaryEntries = null;
+    private List<DiaryEntry> diaryEntries = new ArrayList<>();
     private final static long serialVersionUID = -6708868211577478520L;
 
     public List<DiaryEntry> getDiaryEntries() {

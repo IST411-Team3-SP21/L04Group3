@@ -58,9 +58,15 @@ public class ClientHandler implements Runnable {
      * @throws Exception Typically an IOException
      */
     public DiaryEntries getDiaryPosts() throws Exception {
-        InputStream is = new FileInputStream("../diary.json");
+        File file = new File("diary.json");
+        file.createNewFile(); // will do nothing if already exists
+        InputStream is = new FileInputStream("diary.json");
         var fileBody = jsonToString(is, "UTF-8");
-        return gson.fromJson(fileBody, DiaryEntries.class);
+        var entries = gson.fromJson(fileBody, DiaryEntries.class);
+        if (entries == null) {
+            return new DiaryEntries();
+        }
+        return entries;
     }
 
     /**
@@ -72,16 +78,21 @@ public class ClientHandler implements Runnable {
             StringBuilder responseBuffer = new StringBuilder()
                     .append("<html><h1>Group3 WebServer Home Page.... </h1><br>")
                     .append("<b>Welcome to our wonderful web server!</b><BR>")
-                    .append("<p>Here are my diary entries!</p>")
-                    .append("<ul>");
+                    .append("<p>Here are my diary entries!</p>");
             var diaryEntries = getDiaryPosts();
-            for (DiaryEntry entry : diaryEntries.getDiaryEntries()) {
-                responseBuffer.append(String.format("<li>User: %s - Date: %s: - Entry: %s  </li>",
-                        entry.getIpAddress(),
-                        entry.getDate(),
-                        entry.getBody()));
+
+            if ( diaryEntries == null || diaryEntries.getDiaryEntries().isEmpty()) {
+                responseBuffer.append("<p><strong>You have no entries!</strong></p>");
+            } else {
+                responseBuffer.append("<ul>");
+                diaryEntries.getDiaryEntries().forEach(entry -> {
+                    responseBuffer.append(String.format("<li>User: %s - Date: %s: - Entry: %s  </li>",
+                            entry.getIpAddress(),
+                            entry.getDate(),
+                            entry.getBody()));
+                });
+                responseBuffer.append("</ul>");
             }
-            responseBuffer.append("</ul>");
 
             System.out.println("Sending Response");
             sendResponse(socket, code, responseBuffer.toString());
@@ -118,7 +129,9 @@ public class ClientHandler implements Runnable {
         var diaryEntries = getDiaryPosts();
         diaryEntries.addDiaryEntry(diaryEntry);
 
-        FileOutputStream fout = new FileOutputStream("../diary.json");
+        File file = new File("diary.json");
+        file.createNewFile(); // does nothing if already exists
+        FileOutputStream fout = new FileOutputStream("diary.json");
         fout.write(gson.toJson(diaryEntries).getBytes());
         fout.close();
     }
@@ -128,7 +141,7 @@ public class ClientHandler implements Runnable {
      * @param payload Entire payload of POST request
      * @return
      */
-    private String parseJsonFromBody(String payload) {
+    private String parseJsonFromBody(String payload) throws Exception {
         List<Character> stack = new ArrayList<>();
         List<String> json = new ArrayList<>();
         String tempStr = "";
@@ -152,6 +165,7 @@ public class ClientHandler implements Runnable {
                 tempStr = "";
             }
         }
+        if (json.isEmpty()) throw new Exception("POST request has no body");
         return json.get(0);
     }
 
@@ -203,6 +217,7 @@ public class ClientHandler implements Runnable {
                     sendResponse(socket, 405, "Method Not Allowed");
             }
         } catch (Exception e) {
+            e.printStackTrace();
             System.err.println(e.getMessage());
         }
     }
